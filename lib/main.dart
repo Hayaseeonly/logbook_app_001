@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart'; 
-import 'package:intl/date_symbol_data_local.dart'; // Tambahkan ini untuk Lokalisasi
-import 'package:logbook_app_001/services/mongo_service.dart'; 
+import 'package:intl/date_symbol_data_local.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:logbook_app_001/services/mongo_service.dart';
+import 'package:logbook_app_001/features/logbook/models/log_model.dart';
 import 'package:logbook_app_001/features/onboarding/onboarding_view.dart';
 
 Future<void> main() async {
-  // 1. Wajib dipanggil sebelum inisialisasi asinkron lainnya
   WidgetsFlutterBinding.ensureInitialized();
-
-  // 2. Load konfigurasi keamanan dari file .env 
   await dotenv.load(fileName: ".env");
 
-  // 3. WAJIB: Inisialisasi data tanggal untuk format Indonesia (PR Task 3)
-  // Ini yang bikin format "25 Jan 2026" kamu nggak error
+  // Setup Hive
+  await Hive.initFlutter(); 
+  Hive.registerAdapter(LogModelAdapter()); 
+  await Hive.openBox<LogModel>('offline_logs'); 
+
   await initializeDateFormatting('id_ID', null);
 
-  // 4. Inisialisasi koneksi MongoDB saat start-up
   try {
     await MongoService().connect();
   } catch (e) {
-    // Log error tanpa menghentikan aplikasi (UI akan handle via Connection Guard)
     debugPrint("Koneksi awal gagal: $e");
   }
 

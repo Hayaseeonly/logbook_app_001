@@ -13,13 +13,11 @@ class _LoginViewState extends State<LoginView> {
   final TextEditingController _userController = TextEditingController();
   final TextEditingController _passController = TextEditingController();
 
-  // State lokal untuk fitur Show/Hide Password
   bool _isObscure = true; 
 
   @override
   void initState() {
     super.initState();
-    // UI update otomatis saat status 'isLocked' berubah
     _controller.addListener(() {
       if (mounted) setState(() {});
     });
@@ -29,7 +27,6 @@ class _LoginViewState extends State<LoginView> {
     String user = _userController.text;
     String pass = _passController.text;
 
-    // Pastikan input tidak kosong
     if (user.isEmpty || pass.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Username dan Password harus diisi!")),
@@ -43,11 +40,17 @@ class _LoginViewState extends State<LoginView> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => LogView(username: user),
+          builder: (context) => LogView(
+            currentUser: {
+              'uid': 'user_temp_id', // 
+              'username': user,
+              'role': user.toLowerCase().contains('admin') ? 'Ketua' : 'Anggota',
+              'teamId': 'MEKTRA_KLP_01', // Contoh Team ID
+            },
+          ),
         ),
       );
     } else {
-      // Cek apakah akun terkunci karena salah 3x
       String message = _controller.isLocked 
           ? "Terlalu banyak percobaan! Tunggu 10 detik." 
           : "Login Gagal! Cek kembali username/password.";
@@ -77,11 +80,10 @@ class _LoginViewState extends State<LoginView> {
             const SizedBox(height: 15),
             TextField(
               controller: _passController,
-              obscureText: _isObscure, // Mengatur sembunyi/lihat teks
+              obscureText: _isObscure,
               decoration: InputDecoration(
                 labelText: "Password",
                 border: const OutlineInputBorder(),
-                // Fitur Show/Hide Password
                 suffixIcon: IconButton(
                   icon: Icon(_isObscure ? Icons.visibility_off : Icons.visibility),
                   onPressed: () {
@@ -93,13 +95,10 @@ class _LoginViewState extends State<LoginView> {
               ),
             ),
             const SizedBox(height: 25),
-            
-            // Tombol Login
             SizedBox(
               width: double.infinity,
               height: 50,
               child: ElevatedButton(
-                // Jika isLocked true, onPressed jadi null (tombol otomatis disabled/abu-abu)
                 onPressed: _controller.isLocked ? null : _handleLogin, 
                 child: Text(_controller.isLocked ? "Terkunci (10s)" : "Masuk"),
               ),

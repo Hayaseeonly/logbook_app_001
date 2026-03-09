@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:mongo_dart/mongo_dart.dart'; 
+import 'package:hive/hive.dart';
 import '../../services/mongo_service.dart';
+import '../../services/access_control_service.dart';
 import '../../helpers/log_helper.dart';
 import 'models/log_model.dart';
 
@@ -8,12 +9,16 @@ class LogController {
   final ValueNotifier<List<LogModel>> logsNotifier = ValueNotifier([]);
   final ValueNotifier<String> searchQueryNotifier = ValueNotifier("");
   final String _source = "log_controller.dart";
+  
+  // Mengambil box Hive yang sudah dibuka di main.dart
+  final Box<LogModel> _myBox = Hive.box<LogModel>('offline_logs');
 
-  // --- FITUR SEARCH ---
+  // FITUR SEARCH (In-Memory)
   List<LogModel> get filteredLogs {
     if (searchQueryNotifier.value.isEmpty) return logsNotifier.value;
     return logsNotifier.value.where((log) => 
-      log.title.toLowerCase().contains(searchQueryNotifier.value.toLowerCase())
+      log.title.toLowerCase().contains(searchQueryNotifier.value.toLowerCase()) ||
+      log.description.toLowerCase().contains(searchQueryNotifier.value.toLowerCase())
     ).toList();
   }
 
@@ -21,80 +26,106 @@ class LogController {
     searchQueryNotifier.value = query;
   }
 
-  // --- READ: LOAD DARI CLOUD ---
-  Future<void> loadFromDisk() async {
+  // LOAD DATA (Strategi Offline-First)
+  Future<void> loadLogs(String teamId) async {
+    // Aksi 1: Ambil data dari Hive 
+    logsNotifier.value = _myBox.values.toList();
+    
+    // Sinkronisasi dari Cloud di latar belakang
     try {
-      final cloudData = await MongoService().getLogs();
+      final cloudData = await MongoService().getLogs(teamId);
+      
+      // Update Hive dengan data terbaru dari Cloud agar sinkron
+      await _myBox.clear();
+      await _myBox.addAll(cloudData);
+      
+      // Update tampilan UI dengan data Cloud
       logsNotifier.value = cloudData;
       
-      await LogHelper.writeLog("UI: Data berhasil dimuat dari Cloud", source: _source, level: 2);
+      await LogHelper.writeLog("SYNC: Data sinkron dengan MongoDB Atlas", level: 2);
     } catch (e) {
-      await LogHelper.writeLog("ERROR: Gagal load data - $e", source: _source, level: 1);
-      // --- PEMBARUAN: Rethrow error agar ditangkap FutureBuilder di LogView ---
-      rethrow; 
+      await LogHelper.writeLog("OFFLINE: Menggunakan cache lokal (Hive)", level: 2);
     }
   }
 
-  // --- CREATE: TAMBAH DATA KE CLOUD ---
-  Future<void> addLog(String title, String desc, String category) async {
+  // ADD DATA (Instant Local + Background Cloud)
+  Future<void> addLog(String title, String desc, String authorId, String teamId, 
+      {String category = "Pribadi", bool isPublic = false}) async {
+    
     final newLog = LogModel(
-      id: ObjectId(), 
       title: title,
       description: desc,
-      category: category,
-      date: DateTime.now().toIso8601String(), // Gunakan ISO8601 agar mudah di-parse intl
+      date: DateTime.now().toIso8601String(),
+      authorId: authorId,
+      teamId: teamId,
+      isPublic: isPublic,
     );
 
+    // ACTION 1: Simpan ke Hive 
+    await _myBox.add(newLog);
+    logsNotifier.value = [...logsNotifier.value, newLog];
+
+    // ACTION 2: Kirim ke MongoDB Atlas
     try {
       await MongoService().insertLog(newLog);
-      logsNotifier.value = [...logsNotifier.value, newLog];
+      await LogHelper.writeLog("SUCCESS: Data tersinkron ke Cloud", source: _source);
     } catch (e) {
-      await LogHelper.writeLog("ERROR: Gagal tambah data - $e", source: _source, level: 1);
-      rethrow;
+      await LogHelper.writeLog("WARNING: Disimpan lokal, akan sinkron saat online", level: 1);
     }
   }
 
-  // --- UPDATE: EDIT DATA DI CLOUD ---
-  Future<void> updateLog(int index, String title, String desc, String category) async {
-    final oldLog = logsNotifier.value[index];
+  // UPDATE DATA 
+  Future<void> updateLog(int index, String title, String desc, 
+      {String category = "Pribadi", bool isPublic = false}) async {
     
+    final oldLog = logsNotifier.value[index];
     final updatedLog = LogModel(
-      id: oldLog.id, 
+      id: oldLog.id,
       title: title,
       description: desc,
-      category: category,
       date: DateTime.now().toIso8601String(),
+      authorId: oldLog.authorId,
+      teamId: oldLog.teamId,
+      isPublic: isPublic,
     );
 
     try {
-      await MongoService().updateLog(updatedLog);
-      
+      // Update Lokal
+      await _myBox.putAt(index, updatedLog);
       final currentLogs = List<LogModel>.from(logsNotifier.value);
       currentLogs[index] = updatedLog;
       logsNotifier.value = currentLogs;
+
+      // Update Cloud
+      await MongoService().updateLog(updatedLog);
     } catch (e) {
-      await LogHelper.writeLog("ERROR: Gagal update data - $e", source: _source, level: 1);
-      rethrow;
+      await LogHelper.writeLog("ERROR: Gagal sinkron update - $e", level: 1);
     }
   }
 
-  // --- DELETE: HAPUS DATA DI CLOUD ---
-  Future<void> removeLog(int index) async {
-    final logToDelete = logsNotifier.value[index];
+  // DELETE DATA 
+  Future<void> removeLog(int index, String userRole, String userId) async {
+    final target = logsNotifier.value[index];
     
-    if (logToDelete.id == null) return;
+    // VALIDASI RBAC: Cek izin hapus
+    if (!AccessControlService.canPerform(userRole, 'delete', isOwner: target.authorId == userId)) {
+      await LogHelper.writeLog("SECURITY: Upaya hapus ilegal oleh $userId", level: 1);
+      return;
+    }
 
     try {
-      await MongoService().deleteLog(logToDelete.id!);
-      
+      // Hapus Lokal
+      await _myBox.deleteAt(index);
       final currentLogs = List<LogModel>.from(logsNotifier.value);
       currentLogs.removeAt(index);
       logsNotifier.value = currentLogs;
-      
-      await LogHelper.writeLog("UI: Berhasil menghapus '${logToDelete.title}'", source: _source, level: 2);
+
+      // Hapus Cloud
+      if (target.id != null) {
+        await MongoService().deleteLog(target.id!);
+      }
     } catch (e) {
-      await LogHelper.writeLog("ERROR: Gagal hapus data - $e", source: _source, level: 1);
-      rethrow;
+      await LogHelper.writeLog("ERROR: Gagal hapus - $e", level: 1);
     }
   }
 }
