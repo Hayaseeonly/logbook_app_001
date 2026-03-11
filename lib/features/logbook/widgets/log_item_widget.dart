@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:intl/date_symbol_data_local.dart'; 
 import '../models/log_model.dart';
 
 class LogItemWidget extends StatelessWidget {
   final LogModel log;
-  final VoidCallback onEdit;
-  final VoidCallback onDelete;
+  // PERBAIKAN: Gunakan tanda tanya (?) agar parameter bisa bernilai null (Gatekeeper)
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
   final Color backgroundColor;
 
   const LogItemWidget({
     super.key,
     required this.log,
-    required this.onEdit,
-    required this.onDelete,
+    this.onEdit,   // Hapus 'required' agar bisa menerima null
+    this.onDelete, // Hapus 'required' agar bisa menerima null
     required this.backgroundColor,
   });
 
@@ -22,12 +22,9 @@ class LogItemWidget extends StatelessWidget {
     // LOGIKA PEMFORMATAN TANGGAL 
     String formattedDate;
     try {
-      // Pastikan data tanggal valid sebelum di-parse
       DateTime dateTime = DateTime.parse(log.date);
-      // Format: dd MMM yyyy 
       formattedDate = DateFormat('dd MMM yyyy, HH:mm', 'id_ID').format(dateTime);
     } catch (e) {
-      // Fallback jika parsing gagal
       formattedDate = log.date;
     }
 
@@ -35,7 +32,10 @@ class LogItemWidget extends StatelessWidget {
       color: backgroundColor,
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: ListTile(
-        leading: const Icon(Icons.book),
+        leading: Icon(
+          log.id != null ? Icons.cloud_done : Icons.cloud_upload_outlined,
+          color: log.id != null ? Colors.green : Colors.orange,
+        ),
         title: Text(log.title, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -43,7 +43,7 @@ class LogItemWidget extends StatelessWidget {
             Text("${log.category} • ${log.description}"),
             const SizedBox(height: 4),
             Text(
-              "Dibuat: $formattedDate", // Gunakan hasil format di sini
+              "Dibuat: $formattedDate",
               style: TextStyle(
                 fontSize: 11, 
                 color: Colors.grey.shade700, 
@@ -55,14 +55,19 @@ class LogItemWidget extends StatelessWidget {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            IconButton(
-              icon: const Icon(Icons.edit, color: Colors.blue),
-              onPressed: onEdit,
-            ),
-            IconButton(
-              icon: const Icon(Icons.delete, color: Colors.red),
-              onPressed: onDelete,
-            ),
+            // PERBAIKAN: Hanya tampilkan ikon jika onEdit tidak null (Sesuai Task 3)
+            if (onEdit != null)
+              IconButton(
+                icon: const Icon(Icons.edit, color: Colors.blue),
+                onPressed: onEdit,
+              ),
+            
+            // PERBAIKAN: Hanya tampilkan ikon jika onDelete tidak null (Sesuai Task 3)
+            if (onDelete != null)
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: onDelete,
+              ),
           ],
         ),
       ),

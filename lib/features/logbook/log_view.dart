@@ -21,7 +21,6 @@ class _LogViewState extends State<LogView> {
   final LogController _controller = LogController();
   late Future<void> _initialLoad;
   
-  // Listener koneksi internet
   late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
   bool _isOffline = false;
 
@@ -30,13 +29,11 @@ class _LogViewState extends State<LogView> {
     super.initState();
     _initialLoad = _controller.loadLogs(widget.currentUser['teamId']);
     
-    // Memantau perubahan koneksi secara real-time
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
       final isNowOffline = results.contains(ConnectivityResult.none);
       
       if (_isOffline && !isNowOffline) {
         _refreshData();
-        // Cek mounted sebelum menggunakan BuildContext 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -119,7 +116,6 @@ class _LogViewState extends State<LogView> {
                 widget.currentUser['uid']
               );
               
-              // Cek mounted setelah operasi asinkron 
               if (!mounted) return;
               
               Navigator.pop(context);
@@ -148,12 +144,12 @@ class _LogViewState extends State<LogView> {
       appBar: AppBar(
         title: Text("Logbook: ${widget.currentUser['username']}"),
         actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _refreshData),
           IconButton(icon: const Icon(Icons.logout), onPressed: _handleLogout),
         ],
       ),
       body: Column(
         children: [
-          // Banner Status Koneksi
           AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             height: _isOffline ? 30 : 0,
@@ -167,7 +163,6 @@ class _LogViewState extends State<LogView> {
             ),
           ),
           
-          // Info Tim
           Container(
             padding: const EdgeInsets.all(8),
             color: Colors.blue.shade50,
@@ -220,22 +215,28 @@ class _LogViewState extends State<LogView> {
                           itemBuilder: (context, index) {
                             final log = displayList[index];
                             final int originalIndex = allLogs.indexOf(log);
-                            final bool isOwner = log.authorId == widget.currentUser['uid'];
+                            
+                            // 1. Cek kepemilikan
+                            final bool isOwner = AccessControlService.checkOwnership(
+                              log.authorId, 
+                              widget.currentUser['uid']
+                            );
 
                             return LogItemWidget(
                               log: log,
                               backgroundColor: _getCategoryColor(log.category),
+                              // 2. PERBAIKAN: Gunakan null (BUKAN () {}) jika tidak punya izin
                               onEdit: AccessControlService.canPerform(
                                 widget.currentUser['role'], 
                                 'update', 
                                 isOwner: isOwner
-                              ) ? () => _goToEditor(log: log, index: originalIndex) : () {},
+                              ) ? () => _goToEditor(log: log, index: originalIndex) : null,
                               
                               onDelete: AccessControlService.canPerform(
                                 widget.currentUser['role'], 
                                 'delete', 
                                 isOwner: isOwner
-                              ) ? () => _confirmDelete(originalIndex, log) : () {},
+                              ) ? () => _confirmDelete(originalIndex, log) : null,
                             );
                           },
                         ),

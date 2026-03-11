@@ -49,29 +49,42 @@ class LogController {
   }
 
   // ADD DATA (Instant Local + Background Cloud)
-  Future<void> addLog(String title, String desc, String authorId, String teamId, 
-      {String category = "Pribadi", bool isPublic = false}) async {
-    
+  Future<void> addLog(
+    String title,
+    String desc,
+    String authorId,
+    String teamId, {
+    String category = 'Pribadi',
+    bool isPublic = false,
+    // TAMBAHKAN PARAMETER INI:
+    required Map<String, dynamic> user, 
+  }) async {
     final newLog = LogModel(
+      id: ObjectId().oid,
       title: title,
       description: desc,
-      date: DateTime.now().toIso8601String(),
+      date: DateTime.now().toString(),
       authorId: authorId,
       teamId: teamId,
+      category: category,
       isPublic: isPublic,
+      // SEKARANG GUNAKAN VARIABEL 'user'
+      authorName: user['username'] ?? 'User',
+      authorRole: user['role'] ?? 'Anggota',
     );
 
-    // ACTION 1: Simpan ke Hive 
+    // Simpan lokal (Hive)
     await _myBox.add(newLog);
     logsNotifier.value = [...logsNotifier.value, newLog];
 
-    // ACTION 2: Kirim ke MongoDB Atlas
+    // Sinkronisasi ke Cloud
     try {
       await MongoService().insertLog(newLog);
-      await LogHelper.writeLog("SUCCESS: Data tersinkron ke Cloud", source: _source);
+      await LogHelper.writeLog("SUCCESS: Log tersimpan", source: "log_controller.dart");
     } catch (e) {
-      await LogHelper.writeLog("WARNING: Disimpan lokal, akan sinkron saat online", level: 1);
+      await LogHelper.writeLog("WARNING: Offline mode - $e", level: 1);
     }
+  }
   }
 
   // UPDATE DATA 

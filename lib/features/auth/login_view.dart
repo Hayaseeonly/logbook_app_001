@@ -37,18 +37,18 @@ class _LoginViewState extends State<LoginView> {
     bool isSuccess = _controller.login(user, pass);
 
     if (isSuccess) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => LogView(
-            currentUser: {
-              'uid': 'user_temp_id', // 
-              'username': user,
-              'role': user.toLowerCase().contains('admin') ? 'Ketua' : 'Anggota',
-              'teamId': 'MEKTRA_KLP_01', // Contoh Team ID
-            },
-          ),
-        ),
+  Navigator.pushReplacement(
+    context,
+    MaterialPageRoute(
+      builder: (context) => LogView(
+        currentUser: {
+          'uid': user.toLowerCase().contains('admin') ? 'ID_ADMIN_01' : 'ID_MAHASISWA_01',
+          'username': user,
+          'role': user.toLowerCase().contains('admin') ? 'Ketua' : 'Anggota',
+          'teamId': 'MEKTRA_KLP_01',
+        },
+      ),
+      ),
       );
     } else {
       String message = _controller.isLocked 

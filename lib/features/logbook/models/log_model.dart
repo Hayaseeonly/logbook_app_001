@@ -7,27 +7,26 @@ part 'log_model.g.dart';
 class LogModel {
   @HiveField(0)
   final String? id;
-
   @HiveField(1)
   final String title;
-
   @HiveField(2)
   final String description;
-
   @HiveField(3)
   final String date;
-
   @HiveField(4)
   final String authorId;
-
   @HiveField(5)
   final String teamId;
-
   @HiveField(6)
   final bool isPublic;
-
   @HiveField(7)
-  final String category; // Menambahkan kembali category agar UI bisa menampilkan kategori log
+  final String category;
+  
+  // Field tambahan untuk identitas di UI
+  @HiveField(8)
+  final String authorName;
+  @HiveField(9)
+  final String authorRole;
 
   LogModel({
     this.id,
@@ -38,6 +37,8 @@ class LogModel {
     required this.teamId,
     this.isPublic = false,
     this.category = 'Pribadi',
+    this.authorName = 'User',
+    this.authorRole = 'Anggota',
   });
 
   Map<String, dynamic> toMap() {
@@ -50,6 +51,8 @@ class LogModel {
       'teamId': teamId,
       'isPublic': isPublic,
       'category': category,
+      'authorName': authorName,
+      'authorRole': authorRole,
     };
   }
 
@@ -63,6 +66,8 @@ class LogModel {
       teamId: map['teamId'] ?? 'no_team',
       isPublic: map['isPublic'] ?? false,
       category: map['category'] ?? 'Pribadi',
+      authorName: map['authorName'] ?? 'Unknown',
+      authorRole: map['authorRole'] ?? 'Anggota',
     );
   }
 }
