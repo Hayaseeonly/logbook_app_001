@@ -99,7 +99,7 @@ class _CounterViewState extends State<CounterView> {
       body: FutureBuilder(
         future: _initialLoad,
         builder: (context, snapshot) {
-          // 1. LOADING STATE: Menghubungkan ke MongoDB Atlas
+          //  Menghubungkan ke MongoDB Atlas
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(
               child: Column(
@@ -114,7 +114,7 @@ class _CounterViewState extends State<CounterView> {
             );
           }
 
-          // 2. CONNECTION GUARD: Offline Mode
+          // Offline Mode
           if (snapshot.hasError) {
             return RefreshIndicator(
               onRefresh: _refreshData,

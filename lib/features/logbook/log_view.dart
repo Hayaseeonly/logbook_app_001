@@ -150,6 +150,7 @@ class _LogViewState extends State<LogView> {
       ),
       body: Column(
         children: [
+          // Bar status offline
           AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             height: _isOffline ? 30 : 0,
@@ -163,6 +164,7 @@ class _LogViewState extends State<LogView> {
             ),
           ),
           
+          // Informasi Tim & Role
           Container(
             padding: const EdgeInsets.all(8),
             color: Colors.blue.shade50,
@@ -174,6 +176,7 @@ class _LogViewState extends State<LogView> {
             ),
           ),
           
+          // Search Bar
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: TextField(
@@ -199,8 +202,14 @@ class _LogViewState extends State<LogView> {
                   builder: (context, List<LogModel> allLogs, _) => ValueListenableBuilder(
                     valueListenable: _controller.searchQueryNotifier,
                     builder: (context, query, _) {
+                      // FILTER VISIBILITAS:
+                      // Syarat tampil: Catatan tersebut Publik ATAU User adalah Pemiliknya
                       final displayList = _controller.filteredLogs.where((log) {
-                        return log.isPublic || log.authorId == widget.currentUser['uid'];
+                        final bool isOwner = AccessControlService.checkOwnership(
+                          log.authorId, 
+                          widget.currentUser['uid']
+                        );
+                        return log.isPublic || isOwner;
                       }).toList();
 
                       if (displayList.isEmpty) {
@@ -216,7 +225,7 @@ class _LogViewState extends State<LogView> {
                             final log = displayList[index];
                             final int originalIndex = allLogs.indexOf(log);
                             
-                            // 1. Cek kepemilikan
+                            // Cek kepemilikan untuk izin aksi
                             final bool isOwner = AccessControlService.checkOwnership(
                               log.authorId, 
                               widget.currentUser['uid']
@@ -225,13 +234,14 @@ class _LogViewState extends State<LogView> {
                             return LogItemWidget(
                               log: log,
                               backgroundColor: _getCategoryColor(log.category),
-                              // 2. PERBAIKAN: Gunakan null (BUKAN () {}) jika tidak punya izin
+                              // Tombol Edit: Aktif jika user adalah pemilik atau Ketua
                               onEdit: AccessControlService.canPerform(
                                 widget.currentUser['role'], 
                                 'update', 
                                 isOwner: isOwner
                               ) ? () => _goToEditor(log: log, index: originalIndex) : null,
                               
+                              // Tombol Hapus: Aktif jika user adalah pemilik atau Ketua
                               onDelete: AccessControlService.canPerform(
                                 widget.currentUser['role'], 
                                 'delete', 

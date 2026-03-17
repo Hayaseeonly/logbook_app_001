@@ -44,7 +44,7 @@ class _LogEditorPageState extends State<LogEditorPage> {
     });
   }
 
-  void _handleSave() async {
+   void _handleSave() async {
     if (_titleController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Judul tidak boleh kosong!")),
@@ -54,7 +54,7 @@ class _LogEditorPageState extends State<LogEditorPage> {
 
     try {
       if (widget.log == null) {
-        // Simpan data baru: Instan ke Hive (Lokal) + Background ke Atlas (Cloud)
+        // Parameter 'user'
         await widget.controller.addLog(
           _titleController.text,
           _descController.text,
@@ -62,15 +62,17 @@ class _LogEditorPageState extends State<LogEditorPage> {
           widget.currentUser['teamId'],
           category: _selectedCategory,
           isPublic: _isPublic,
+          user: widget.currentUser, 
         );
       } else {
-        // Update data lama yang sudah ada di Hive & Cloud
         await widget.controller.updateLog(
-          widget.index!,
-          _titleController.text,
-          _descController.text,
-          category: _selectedCategory,
-          isPublic: _isPublic,
+        widget.index!,              
+        _titleController.text,      
+        _descController.text,       
+        widget.currentUser['uid'],  
+        widget.currentUser['role'], 
+        category: _selectedCategory,
+        isPublic: _isPublic,
         );
       }
 
@@ -162,7 +164,7 @@ class _LogEditorPageState extends State<LogEditorPage> {
                 ],
               ),
             ),
-            // AREA PRATINJAU (Render format Markdown secara real-time)
+            // Render format Markdown secara real-time
             Markdown(
               data: _descController.text.isEmpty
                   ? "# Kosong\n_Belum ada konten untuk dipratinjau._"
