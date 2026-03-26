@@ -21,12 +21,14 @@ class LogModel {
   final bool isPublic;
   @HiveField(7)
   final String category;
-  
-  // Field tambahan untuk identitas di UI
   @HiveField(8)
   final String authorName;
   @HiveField(9)
   final String authorRole;
+  
+  // Field baru untuk melacak apakah data sudah masuk ke MongoDB Atlas
+  @HiveField(10)
+  final bool isSynced;
 
   LogModel({
     this.id,
@@ -39,7 +41,25 @@ class LogModel {
     this.category = 'Pribadi',
     this.authorName = 'User',
     this.authorRole = 'Anggota',
+    this.isSynced = false, // Default false untuk catatan baru yang dibuat di lokal
   });
+
+  // Digunakan untuk memperbarui status isSynced tanpa membuat ulang seluruh objek secara manual
+  LogModel copyWith({bool? isSynced}) {
+    return LogModel(
+      id: id,
+      title: title,
+      description: description,
+      date: date,
+      authorId: authorId,
+      teamId: teamId,
+      isPublic: isPublic,
+      category: category,
+      authorName: authorName,
+      authorRole: authorRole,
+      isSynced: isSynced ?? this.isSynced,
+    );
+  }
 
   Map<String, dynamic> toMap() {
     return {
@@ -68,6 +88,7 @@ class LogModel {
       category: map['category'] ?? 'Pribadi',
       authorName: map['authorName'] ?? 'Unknown',
       authorRole: map['authorRole'] ?? 'Anggota',
+      isSynced: true, 
     );
   }
 }

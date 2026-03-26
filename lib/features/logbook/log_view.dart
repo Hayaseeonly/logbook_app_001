@@ -32,16 +32,9 @@ class _LogViewState extends State<LogView> {
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
       final isNowOffline = results.contains(ConnectivityResult.none);
       
+      // Jika sebelumnya offline dan sekarang online (Internet kembali)
       if (_isOffline && !isNowOffline) {
-        _refreshData();
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Terhubung kembali! Menyinkronkan data..."),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
+        _handleReconnect(); // Jalankan proses sinkronisasi otomatis
       }
       
       if (mounted) {
@@ -50,13 +43,37 @@ class _LogViewState extends State<LogView> {
     });
   }
 
+  // Fungsi internal untuk menangani penyambungan kembali internet
+  Future<void> _handleReconnect() async {
+    // 1. Kirim semua data antrian merah ke Cloud
+    await _controller.syncPendingLogs();
+    
+    // 2. Refresh daftar untuk memperbarui status ikon awan
+    await _refreshData();
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Terhubung kembali! Data disinkronkan ke Cloud."),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
   @override
   void dispose() {
     _connectivitySubscription.cancel();
     super.dispose();
   }
 
+  // REFRESH DATA: Sekarang lebih pintar dengan sinkronisasi antrian
   Future<void> _refreshData() async {
+    // Jika sedang online, coba sinkronkan data yang masih merah dulu
+    if (!_isOffline) {
+      await _controller.syncPendingLogs();
+    }
+    
     setState(() {
       _initialLoad = _controller.loadLogs(widget.currentUser['teamId']);
     });
@@ -150,7 +167,6 @@ class _LogViewState extends State<LogView> {
       ),
       body: Column(
         children: [
-          // Bar status offline
           AnimatedContainer(
             duration: const Duration(milliseconds: 300),
             height: _isOffline ? 30 : 0,
@@ -164,7 +180,6 @@ class _LogViewState extends State<LogView> {
             ),
           ),
           
-          // Informasi Tim & Role
           Container(
             padding: const EdgeInsets.all(8),
             color: Colors.blue.shade50,
@@ -176,7 +191,6 @@ class _LogViewState extends State<LogView> {
             ),
           ),
           
-          // Search Bar
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: TextField(
@@ -225,7 +239,6 @@ class _LogViewState extends State<LogView> {
                             final log = displayList[index];
                             final int originalIndex = allLogs.indexOf(log);
                             
-                            // Cek kepemilikan untuk izin aksi
                             final bool isOwner = AccessControlService.checkOwnership(
                               log.authorId, 
                               widget.currentUser['uid']
@@ -234,14 +247,12 @@ class _LogViewState extends State<LogView> {
                             return LogItemWidget(
                               log: log,
                               backgroundColor: _getCategoryColor(log.category),
-                              // Tombol Edit: Aktif jika user adalah pemilik atau Ketua
                               onEdit: AccessControlService.canPerform(
                                 widget.currentUser['role'], 
                                 'update', 
                                 isOwner: isOwner
                               ) ? () => _goToEditor(log: log, index: originalIndex) : null,
                               
-                              // Tombol Hapus: Aktif jika user adalah pemilik atau Ketua
                               onDelete: AccessControlService.canPerform(
                                 widget.currentUser['role'], 
                                 'delete', 

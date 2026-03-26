@@ -16,7 +16,7 @@ class AccessControlService {
 
   static bool canPerform(String role, String action, {bool isOwner = false}) {
     if (action == actionUpdate || action == actionDelete) {
-      return isOwner || role == 'Ketua'; 
+      return isOwner;
     }
     
     final permissions = _rolePermissions[role] ?? [];
