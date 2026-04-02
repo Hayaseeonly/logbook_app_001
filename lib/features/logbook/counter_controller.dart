@@ -65,10 +65,12 @@ class CounterController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setStep(int newValue) {
+ void setStep(int newValue) {
+  if (newValue > 0) { 
     _step = newValue;
     notifyListeners();
   }
+}
 
   void increment() {
     _counter += _step;
@@ -77,12 +79,17 @@ class CounterController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void decrement() {
+ void decrement() {
+  if (_counter - _step < 0) {
+    _counter = 0; 
+  } else {
     _counter -= _step;
-    _addLog("dikurang $_step nilai", LogType.kurang);
-    _saveData();
-    notifyListeners();
   }
+  
+  _addLog("dikurang $_step nilai", LogType.kurang);
+  _saveData();
+  notifyListeners();
+}
 
   void reset() {
     _counter = 0;
