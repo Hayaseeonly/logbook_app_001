@@ -1,11 +1,10 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'vision_controller.dart';
 import 'damage_painter.dart';
-import '../../services/pcd_service.dart'; // Pastikan file ini sudah dibuat
+import 'package:logbook_app_001/services/pcd_service.dart'
 
 class VisionView extends StatefulWidget {
   const VisionView({super.key});
@@ -16,12 +15,8 @@ class VisionView extends StatefulWidget {
 
 class _VisionViewState extends State<VisionView> {
   late VisionController _visionController;
-  
-  // Task 4: Variabel Simulasi Deteksi Dinamis (Mock Detection) [cite: 354, 356]
   Rect? _mockBox;
   Timer? _timer;
-
-  // Homework: Kontrol Hardware & UI Layering 
   bool _isFlashOn = false;
   bool _isOverlayVisible = true;
 
@@ -29,27 +24,24 @@ class _VisionViewState extends State<VisionView> {
   void initState() {
     super.initState();
     _visionController = VisionController();
-    _startMockDetection(); // Implementasi Simulasi [cite: 356, 360]
+    _startMockDetection();
   }
 
-  // Task 4: Logika memindahkan kotak deteksi secara acak setiap 3 detik [cite: 356]
   void _startMockDetection() {
     _timer = Timer.periodic(const Duration(seconds: 3), (timer) {
       if (mounted) {
         setState(() {
-          // Nilai normalisasi 0.0 - 1.0 untuk akurasi lintas perangkat [cite: 110, 319-320]
           _mockBox = Rect.fromLTWH(
             Random().nextDouble() * 0.6,
             Random().nextDouble() * 0.6,
-            0.3, // Lebar 30% dari layar [cite: 357]
-            0.2, // Tinggi 20% dari layar [cite: 357]
+            0.3,
+            0.2,
           );
         });
       }
     });
   }
 
-  // Homework: Mengendalikan Fitur Spesifik Hardware (Flashlight) [cite: 370, 372]
   Future<void> _toggleFlash() async {
     if (_visionController.controller == null) return;
     _isFlashOn = !_isFlashOn;
@@ -59,19 +51,16 @@ class _VisionViewState extends State<VisionView> {
     setState(() {});
   }
 
-  // Fitur "Jeprek": Menangkap Citra untuk Pemrosesan PCD [cite: 149-151]
   Future<void> _captureAndFilter() async {
     try {
       final image = await _visionController.controller!.takePicture();
       if (!mounted) return;
-
       _showPcdMenu(image.path);
     } catch (e) {
       debugPrint("Error capture: $e");
     }
   }
 
-  // Menu Pilihan Filter PCD Lengkap (Point, Spatial, Edge, Analysis)
   void _showPcdMenu(String path) {
     showModalBottomSheet(
       context: context,
@@ -92,18 +81,10 @@ class _VisionViewState extends State<VisionView> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
             const Divider(),
-            // 1. Point Processing (Manipulasi Piksel Mandiri)
-            _buildFilterGroup("1. Point Processing", 
-              ["Brightness", "Contrast", "Grayscale", "Negative", "Thresholding"]),
-            // 2. Spatial Filtering (Konvolusi & Kernel)
-            _buildFilterGroup("2. Spatial Filtering", 
-              ["Mean Filter", "Gaussian Blur", "Median Filter", "Laplacian", "Unsharp Masking"]),
-            // 3. Edge Detection (Indra Pendeteksi Infrastruktur)
-            _buildFilterGroup("3. Edge Detection", 
-              ["Sobel Operator", "Prewitt Operator", "Roberts Operator", "Canny Edge Detection"]),
-            // 4. Analisis Histogram
-            _buildFilterGroup("4. Analisis Citra", 
-              ["Histogram Analysis", "Histogram Equalization"]),
+            _buildFilterGroup("1. Point Processing", ["Brightness", "Contrast", "Grayscale", "Negative", "Thresholding"]),
+            _buildFilterGroup("2. Spatial Filtering", ["Mean Filter", "Gaussian Blur", "Median Filter", "Laplacian", "Unsharp Masking"]),
+            _buildFilterGroup("3. Edge Detection", ["Sobel", "Prewitt", "Roberts", "Canny"]),
+            _buildFilterGroup("4. Analisis Citra", ["Histogram Analysis", "Histogram Equalization"]),
           ],
         ),
       ),
@@ -118,13 +99,10 @@ class _VisionViewState extends State<VisionView> {
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: Text(title, style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
         ),
-        ...filters.map((filterName) => ListTile(
+        ...filters.map((f) => ListTile(
           leading: const Icon(Icons.filter_vintage_outlined, size: 20),
-          title: Text(filterName),
-          onTap: () {
-            Navigator.pop(context);
-            // Integrasi ke PcdResultPage untuk melihat hasil olahan citra
-          },
+          title: Text(f),
+          onTap: () => Navigator.pop(context),
         )),
       ],
     );
@@ -133,7 +111,7 @@ class _VisionViewState extends State<VisionView> {
   @override
   void dispose() {
     _timer?.cancel();
-    _visionController.dispose(); // Lifecycle Safety: Melepaskan hardware [cite: 85-86, 230-232, 358]
+    _visionController.dispose();
     super.dispose();
   }
 
@@ -141,12 +119,10 @@ class _VisionViewState extends State<VisionView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      // Hapus extendBehindAppBar sementara jika Flutter kamu versi lama, 
-      // atau pastikan letaknya tepat di bawah backgroundColor/appBar.
-      extendBehindAppBar: true, 
+      extendBehindAppBar: true, // Parameter Scaffold
       appBar: AppBar(
         title: const Text("Smart-Patrol Vision"),
-        backgroundColor: Colors.transparent, // Agar preview kamera terlihat di balik AppBar [cite: 66]
+        backgroundColor: Colors.transparent, 
         elevation: 0,
         foregroundColor: Colors.white,
         actions: [
@@ -164,26 +140,47 @@ class _VisionViewState extends State<VisionView> {
         listenable: _visionController,
         builder: (context, child) {
           if (!_visionController.isInitialized) {
-            return const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(color: Colors.blueAccent),
-                  SizedBox(height: 16),
-                  Text("Menghubungkan ke Sensor...", style: TextStyle(color: Colors.white)),
-                ],
-              ),
-            );
+            return const Center(child: CircularProgressIndicator(color: Colors.blueAccent));
           }
-          return _buildVisionStack();
+          return _buildVisionStack(); // Metode dipanggil di sini
         },
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton.large(
         onPressed: _captureAndFilter,
-        backgroundColor: Colors.white.withOpacity(0.3),
+        backgroundColor: Colors.white.withValues(alpha: 0.3), // Pengganti withOpacity
         child: const Icon(Icons.camera_alt, color: Colors.white, size: 40),
       ),
+    );
+  }
+
+  // FIXED: Definisi metode _buildVisionStack yang sebelumnya hilang
+  Widget _buildVisionStack() {
+    final size = MediaQuery.of(context).size;
+    final deviceRatio = size.width / size.height;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Center(
+          child: Transform.scale(
+            scale: 1 / (_visionController.controller!.value.aspectRatio * deviceRatio),
+            child: AspectRatio(
+              aspectRatio: _visionController.controller!.value.aspectRatio,
+              child: CameraPreview(_visionController.controller!),
+            ),
+          ),
+        ),
+        if (_isOverlayVisible)
+          Positioned.fill(
+            child: CustomPaint(
+              painter: DamagePainter(
+                mockBox: _mockBox, // Menggunakan mockBox agar sinkron
+                label: "D40 POTHOLE - 92%",
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
