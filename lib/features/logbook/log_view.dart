@@ -7,6 +7,7 @@ import 'log_editor_page.dart';
 import 'widgets/log_item_widget.dart';
 import '../../services/access_control_service.dart';
 import '../onboarding/onboarding_view.dart';
+import '../vision/vision_view.dart'; // 1. IMPORT VISION VIEW [cite: 257]
 
 class LogView extends StatefulWidget {
   final Map<String, dynamic> currentUser; 
@@ -32,9 +33,8 @@ class _LogViewState extends State<LogView> {
     _connectivitySubscription = Connectivity().onConnectivityChanged.listen((results) {
       final isNowOffline = results.contains(ConnectivityResult.none);
       
-      // Jika sebelumnya offline dan sekarang online (Internet kembali)
       if (_isOffline && !isNowOffline) {
-        _handleReconnect(); // Jalankan proses sinkronisasi otomatis
+        _handleReconnect(); 
       }
       
       if (mounted) {
@@ -43,12 +43,8 @@ class _LogViewState extends State<LogView> {
     });
   }
 
-  // Fungsi internal untuk menangani penyambungan kembali internet
   Future<void> _handleReconnect() async {
-    // 1. Kirim semua data antrian merah ke Cloud
     await _controller.syncPendingLogs();
-    
-    // 2. Refresh daftar untuk memperbarui status ikon awan
     await _refreshData();
 
     if (mounted) {
@@ -67,9 +63,7 @@ class _LogViewState extends State<LogView> {
     super.dispose();
   }
 
-  // REFRESH DATA: Sekarang lebih pintar dengan sinkronisasi antrian
   Future<void> _refreshData() async {
-    // Jika sedang online, coba sinkronkan data yang masih merah dulu
     if (!_isOffline) {
       await _controller.syncPendingLogs();
     }
@@ -90,6 +84,14 @@ class _LogViewState extends State<LogView> {
           currentUser: widget.currentUser,
         ),
       ),
+    );
+  }
+
+  // 2. FUNGSI NAVIGASI KE VISION VIEW [cite: 258]
+  void _goToVision() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const VisionView()),
     );
   }
 
@@ -216,8 +218,6 @@ class _LogViewState extends State<LogView> {
                   builder: (context, List<LogModel> allLogs, _) => ValueListenableBuilder(
                     valueListenable: _controller.searchQueryNotifier,
                     builder: (context, query, _) {
-                      // FILTER VISIBILITAS:
-                      // Syarat tampil: Catatan tersebut Publik ATAU User adalah Pemiliknya
                       final displayList = _controller.filteredLogs.where((log) {
                         final bool isOwner = AccessControlService.checkOwnership(
                           log.authorId, 
@@ -270,9 +270,23 @@ class _LogViewState extends State<LogView> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _goToEditor(),
-        child: const Icon(Icons.add),
+      // 3. UPDATE FLOATING ACTION BUTTON UNTUK DUA FITUR 
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            heroTag: "visionBtn",
+            onPressed: _goToVision,
+            backgroundColor: Colors.blueAccent,
+            child: const Icon(Icons.camera_alt, color: Colors.white),
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton(
+            heroTag: "addLogBtn",
+            onPressed: () => _goToEditor(),
+            child: const Icon(Icons.add),
+          ),
+        ],
       ),
     );
   }
