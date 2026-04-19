@@ -4,7 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'vision_controller.dart';
 import 'damage_painter.dart';
-import 'package:logbook_app_001/services/pcd_service.dart'
+import 'pcd_result_page.dart'; // Import halaman hasil baru
+import 'package:logbook_app_001/services/pcd_service.dart';
 
 class VisionView extends StatefulWidget {
   const VisionView({super.key});
@@ -55,6 +56,7 @@ class _VisionViewState extends State<VisionView> {
     try {
       final image = await _visionController.controller!.takePicture();
       if (!mounted) return;
+      // Kirim path gambar ke menu
       _showPcdMenu(image.path);
     } catch (e) {
       debugPrint("Error capture: $e");
@@ -69,7 +71,7 @@ class _VisionViewState extends State<VisionView> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.6,
+        initialChildSize: 0.7,
         maxChildSize: 0.9,
         expand: false,
         builder: (_, scrollController) => ListView(
@@ -77,32 +79,46 @@ class _VisionViewState extends State<VisionView> {
           children: [
             const Padding(
               padding: EdgeInsets.all(16.0),
-              child: Text("PCD - Road Damage Enhancement", 
+              child: Text("SMART-PATROL: 11 PCD FILTERS", 
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             ),
             const Divider(),
-            _buildFilterGroup("1. Point Processing", ["Brightness", "Contrast", "Grayscale", "Negative", "Thresholding"]),
-            _buildFilterGroup("2. Spatial Filtering", ["Mean Filter", "Gaussian Blur", "Median Filter", "Laplacian", "Unsharp Masking"]),
-            _buildFilterGroup("3. Edge Detection", ["Sobel", "Prewitt", "Roberts", "Canny"]),
-            _buildFilterGroup("4. Analisis Citra", ["Histogram Analysis", "Histogram Equalization"]),
+            // Median sudah dihapus dari daftar
+            _buildFilterGroup("Point Processing", ["Grayscale", "Biner", "Inverse"], path),
+            _buildFilterGroup("Frequency Domain", ["Low pass", "High pass", "Band pass"], path),
+            _buildFilterGroup("Spatial Filtering", ["Mean", "Gaussian"], path),
+            _buildFilterGroup("Histogram Analysis", ["Histogram equalization", "Adaptive histogram equalization", "Histogram specification"], path),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildFilterGroup(String title, List<String> filters) {
+  // Tambahkan parameter imagePath di sini
+  Widget _buildFilterGroup(String title, List<String> filters, String imagePath) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Text(title, style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold)),
         ),
         ...filters.map((f) => ListTile(
-          leading: const Icon(Icons.filter_vintage_outlined, size: 20),
           title: Text(f),
-          onTap: () => Navigator.pop(context),
+          leading: const Icon(Icons.auto_fix_high),
+          onTap: () {
+            Navigator.pop(context); // Tutup menu
+            // Navigasi ke halaman hasil
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => PcdResultPage(
+                  imagePath: imagePath,
+                  filterName: f,
+                ),
+              ),
+            );
+          },
         )),
       ],
     );
@@ -119,10 +135,10 @@ class _VisionViewState extends State<VisionView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      extendBehindAppBar: true, // Parameter Scaffold
+      extendBodyBehindAppBar: true, 
       appBar: AppBar(
         title: const Text("Smart-Patrol Vision"),
-        backgroundColor: Colors.transparent, 
+        backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Colors.white,
         actions: [
@@ -142,28 +158,31 @@ class _VisionViewState extends State<VisionView> {
           if (!_visionController.isInitialized) {
             return const Center(child: CircularProgressIndicator(color: Colors.blueAccent));
           }
-          return _buildVisionStack(); // Metode dipanggil di sini
+          return _buildVisionStack();
         },
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: FloatingActionButton.large(
         onPressed: _captureAndFilter,
-        backgroundColor: Colors.white.withValues(alpha: 0.3), // Pengganti withOpacity
+        backgroundColor: Colors.white.withValues(alpha: 0.3),
         child: const Icon(Icons.camera_alt, color: Colors.white, size: 40),
       ),
     );
   }
 
-  // FIXED: Definisi metode _buildVisionStack yang sebelumnya hilang
   Widget _buildVisionStack() {
+    // 1. Ambil ukuran layar perangkat
     final size = MediaQuery.of(context).size;
     final deviceRatio = size.width / size.height;
 
     return Stack(
       fit: StackFit.expand,
       children: [
+        // LAYER 1: Kamera dengan koreksi Transform.scale
         Center(
           child: Transform.scale(
+            // RUMUS: Skala = 1 / (Rasio Kamera * Rasio Perangkat)
+            // Ini memastikan preview kamera menutupi layar tanpa distorsi (cropping)
             scale: 1 / (_visionController.controller!.value.aspectRatio * deviceRatio),
             child: AspectRatio(
               aspectRatio: _visionController.controller!.value.aspectRatio,
@@ -171,12 +190,14 @@ class _VisionViewState extends State<VisionView> {
             ),
           ),
         ),
+
+        // LAYER 2: Digital Overlay (Hanya muncul jika _isOverlayVisible true)
         if (_isOverlayVisible)
           Positioned.fill(
             child: CustomPaint(
               painter: DamagePainter(
-                mockBox: _mockBox, // Menggunakan mockBox agar sinkron
-                label: "D40 POTHOLE - 92%",
+                mockBox: _mockBox, 
+                label: "D40 POTHOLE - 92%", 
               ),
             ),
           ),
